@@ -17,6 +17,9 @@
 
 #include "mystruct.h"
 
+#define MY_PULSE_CODE   _PULSE_CODE_MINAVAIL
+
+
 int checkInt (const char *operand);
 /*******************************************************************************
  * main( )
@@ -51,7 +54,12 @@ int main(int argc, char *argv[]) {
 				}
 				sleep(atoi(pause_time));
 				checkValid = 0;
-			}else{
+			}else if(strcmp(input, inMessage[EMER_BUTTON]) == 0){
+				MsgSendPulse(server_coid, SchedGet(0,0,NULL), _PULSE_CODE_MINAVAIL, 1);
+				checkValid = 1;
+				status = 1;
+			}
+			else{
 				//strcpy(operator.input, input);
 
 				// Check the state: READY_STATE
@@ -106,10 +114,12 @@ int main(int argc, char *argv[]) {
 		}while(checkValid == 0);
 
 		// send the message
-		if (MsgSend (server_coid, &operator, sizeof(operator), &checkState, (int)sizeof(checkState)) == -1) {
-			fprintf (stderr, "Error during MsgSend\n");
-			perror (NULL);
-			exit (EXIT_FAILURE);
+		if(strcmp(input, inMessage[EMER_BUTTON]) != 0){
+			if (MsgSend (server_coid, &operator, sizeof(operator), &checkState, (int)sizeof(checkState)) == -1) {
+				fprintf (stderr, "Error during MsgSend\n");
+				perror (NULL);
+				exit (EXIT_FAILURE);
+			}
 		}
 		// Break the loop if user enter "S"
 		if(status == 1)

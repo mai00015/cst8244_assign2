@@ -43,7 +43,8 @@ int main(int argc, char *argv[]) {
 		if(display.index != -1){
 			printf("%s", outMessage[display.index]);
 			printf("\n");
-
+			if(display.index == EMER_MSG)
+				status = 1;
 		}else{
 			status = 1;
 		}

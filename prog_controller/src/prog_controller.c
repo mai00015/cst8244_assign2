@@ -26,7 +26,7 @@ void state_right_down(Display*, State*);
 void state_armed(Display*, State*);
 void state_punched(Display*, State*);
 void state_exit(Display*, State*);
-void state_stop(Display*);
+void state_stop();
 
 void sendDisplay(int, Display);
 
@@ -68,48 +68,54 @@ int main(int argc, char* argv[] ) {
 		if(rcvid == -1){
 			perror("Cannot receive from child");
 			exit (EXIT_FAILURE);
-		}
-
-		/* Check a current state of child */
-		switch (op.curr) {
-		case READY_STATE:
-			nextState = READY_STATE;
-			sleep(3);
-			break;
-		case LEFT_DOWN_STATE:
-			state_left_down(&display, &nextState);
-			sendDisplay(server_coid, display);
-			break;
-		case RIGHT_DOWN_STATE:
-			state_right_down(&display, &nextState);
-			sendDisplay(server_coid, display);
-			break;
-		case ARMED_STATE:
-			state_armed(&display, &nextState);
-			sendDisplay(server_coid, display);
-			sleep(2);
-
-			/* Controller goes to the next state: PUNCH_STATE */
-			state_punched(&display, &nextState);
-			sendDisplay(server_coid, display);
-			sleep(1);
-			break;
-		case EXIT_STATE:
-			state_exit(&display, &nextState);
-			sendDisplay(server_coid, display);
-			sleep(5);
-
-			/* Controller goes to the next state: STOP_STATE */
+		}else if(rcvid == 0){
+			nextState = STOP_STATE;
 			state_stop(&display);
+			display.index = EMER_MSG;
 			sendDisplay(server_coid, display);
-			break;
-		default:
-			break;
-		}
+		}else{
+			/* Check a current state of child */
+			switch (op.curr) {
+			case READY_STATE:
+				nextState = READY_STATE;
+				sleep(3);
+				break;
+			case LEFT_DOWN_STATE:
+				state_left_down(&display, &nextState);
+				sendDisplay(server_coid, display);
+				break;
+			case RIGHT_DOWN_STATE:
+				state_right_down(&display, &nextState);
+				sendDisplay(server_coid, display);
+				break;
+			case ARMED_STATE:
+				state_armed(&display, &nextState);
+				sendDisplay(server_coid, display);
+				sleep(2);
 
-		if(nextState == READY_STATE){
-			state_ready(&display);
-			sendDisplay(server_coid, display);
+				/* Controller goes to the next state: PUNCH_STATE */
+				state_punched(&display, &nextState);
+				sendDisplay(server_coid, display);
+				sleep(1);
+				break;
+			case EXIT_STATE:
+				state_exit(&display, &nextState);
+				sendDisplay(server_coid, display);
+				sleep(5);
+
+				/* Controller goes to the next state: STOP_STATE */
+				state_stop(&display);
+				display.index = -1;
+				sendDisplay(server_coid, display);
+				break;
+			default:
+				break;
+			}
+
+			if(nextState == READY_STATE){
+				state_ready(&display);
+				sendDisplay(server_coid, display);
+			}
 		}
 
 		//Reply to input and provide next state to handle next input.
@@ -181,9 +187,8 @@ void state_exit(Display *display, State *nextState){
 /*******************************************************************************
  * state_stop( ): void
  ******************************************************************************/
-void state_stop(Display *display){
+void state_stop(){
 	printf("Moving to state: Stop\n");
-	display->index = -1;
 }
 /*******************************************************************************
  * sendDisplay( ): int
