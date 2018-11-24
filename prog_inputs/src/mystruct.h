@@ -55,11 +55,16 @@ const char *inMessage[NUM_INPUTS] = {
 
 #define LEFT 0
 #define RIGHT 1
-typedef struct {
+
+typedef union{
 	struct _pulse pulse;
+	char msg[255];
+} my_message_t;
+
+typedef struct {
+	my_message_t message;
 	int direction;
 	State curr;
-	//char input[3];
 } Operator;
 
 typedef struct {

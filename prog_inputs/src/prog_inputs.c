@@ -17,10 +17,13 @@
 
 #include "mystruct.h"
 
-#define MY_PULSE_CODE   _PULSE_CODE_MINAVAIL
+#define EMER_PULSE_CODE        0
+#define DEFAULT_PULSE_CODE
+
 
 
 int checkInt (const char *operand);
+int checkValid (const char *input);
 /*******************************************************************************
  * main( )
  ******************************************************************************/
@@ -43,6 +46,16 @@ int main(int argc, char *argv[]) {
 			printf ("Enter the input (LD, LU, RD, RU, S, P <int>, ES): \n");
 			scanf("%s", &input);
 
+			if(checkState == PUNCH_STATE){
+				if(strcmp(input, inMessage[LEFT_BUTTON_UP]) == 0 || strcmp(input, inMessage[RIGHT_BUTTON_UP]) == 0){
+					checkValid = 1;
+					operator.curr = READY_STATE;
+				}
+				else{
+					checkState = READY_STATE;
+				}
+			}
+
 			if(strcmp(input, "P") == 0){
 				scanf("%s", &pause_time);
 
@@ -55,13 +68,11 @@ int main(int argc, char *argv[]) {
 				sleep(atoi(pause_time));
 				checkValid = 0;
 			}else if(strcmp(input, inMessage[EMER_BUTTON]) == 0){
-				MsgSendPulse(server_coid, SchedGet(0,0,NULL), _PULSE_CODE_MINAVAIL, 1);
+				MsgSendPulse(server_coid, SchedGet(0,0,NULL), EMER_PULSE_CODE, 1);
 				checkValid = 1;
 				status = 1;
 			}
 			else{
-				//strcpy(operator.input, input);
-
 				// Check the state: READY_STATE
 				if(checkState == READY_STATE){
 					if(strcmp(input,inMessage[LEFT_BUTTON_DOWN]) == 0){
@@ -144,4 +155,12 @@ int checkInt (const char *num){
 		check++;
 	}
 	return 0;
+}
+int checkValid(const char *input){
+	int i, error = -1;
+	for(i = 0; i < NUM_INPUTS; i++){
+		if (strcmp(input, inMessage[i]) == 0)
+			return i;
+	}
+	return error;
 }
