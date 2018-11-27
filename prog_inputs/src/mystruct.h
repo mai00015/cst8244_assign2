@@ -13,13 +13,14 @@ typedef enum {
 	STOP_STATE = 7
 } State;
 
-#define NUM_INPUTS 5
+#define NUM_INPUTS 6
 typedef enum {
 	LEFT_BUTTON_DOWN = 0,
 	LEFT_BUTTON_UP = 1,
 	RIGHT_BUTTON_DOWN = 2,
 	RIGHT_BUTTON_UP = 3,
-	STOP_BUTTON = 4
+	STOP_BUTTON = 4,
+	EMER_BUTTON = 5
 } Input;
 
 #define NUM_OUTPUTS 7
@@ -48,7 +49,8 @@ const char *inMessage[NUM_INPUTS] = {
 		"LU",
 		"RD",
 		"RU",
-		"S"
+		"S",
+		"ES"
 };
 
 #define LEFT 0

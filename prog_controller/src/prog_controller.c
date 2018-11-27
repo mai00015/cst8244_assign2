@@ -29,17 +29,34 @@ void state_exit(Display*, State*);
 void state_stop(Display*);
 
 void sendDisplay(int, Display);
-
+#define TIMER_PULSE_CODE _PULSE_CODE_MINAVAIL
+#define PULSE_ES_ _PULSE_CODE_MAXAVAIL
+#define PULSE_BTN_UP _PULSE_CODE_COIDDEATH
+typedef union {
+	struct _pulse   pulse;
+	/* your other message structures would go
+           here too */
+	Operator op;
+} my_message_t;
 /*******************************************************************************
  * main( )
  ******************************************************************************/
 int main(int argc, char* argv[] ) {
-	int     rcvid;         // indicates who we should reply to
+	int     rcvid, rcvid2;         // indicates who we should reply to
 	int		server_coid;
 	name_attach_t *att;
 	State 	nextState = START_STATE;
 	Display display;
-	Operator op;
+	//Operator op;
+
+	struct sigevent         event;
+	struct itimerspec       itime;
+	timer_t                 timer_id;
+	my_message_t            msg;
+	int msgRcv = 0;
+
+
+
 
 	/* Configure as a server, register the name_space */
 	if ((att = name_attach(NULL, "dev/punch-press-controller", 0)) == NULL) {
@@ -50,7 +67,19 @@ int main(int argc, char* argv[] ) {
 		perror("name_open failed.");
 		return EXIT_FAILURE;
 	}
+	event.sigev_notify = SIGEV_PULSE;
+	event.sigev_coid = ConnectAttach(ND_LOCAL_NODE, 0,
+			att->chid,
+			_NTO_SIDE_CHANNEL, 0);
+	event.sigev_priority = SchedGet(0,0,NULL);
+	event.sigev_code = TIMER_PULSE_CODE;
+	timer_create(CLOCK_REALTIME, &event, &timer_id);
 
+
+	itime.it_value.tv_sec = 5;
+	itime.it_value.tv_nsec = 0;
+	itime.it_interval.tv_sec = 0;
+	itime.it_interval.tv_nsec = 0;
 	/* Controller will move from state: START_STATE to state: READY_STATE
 	 * so that user can input
 	 */
@@ -62,16 +91,22 @@ int main(int argc, char* argv[] ) {
 	}
 	/* Start the loop */
 	while (nextState != STOP_STATE) {
-
-		/* Receive package from child */
-		rcvid = MsgReceive (att->chid, &op, sizeof(op), NULL);
+		printf("RCVID AT BEGINNING OF LOOP: %d\n",rcvid);
+		/* Receive package from child
+		 * TODO: after button up cancel, rcvid is reset to */
+		rcvid = MsgReceive (att->chid, &msg, sizeof(msg), NULL);
+		msgRcv++;
+		printf("Msg Received: %d\n",msgRcv);
+		/*Store the message send rcvid to reply*/
+		printf("RCVID success: %d\n",rcvid);
+		rcvid2 = rcvid;
+		printf("%d\n", rcvid);
 		if(rcvid == -1){
 			perror("Cannot receive from child");
 			exit (EXIT_FAILURE);
 		}
-
 		/* Check a current state of child */
-		switch (op.curr) {
+		switch (msg.op.curr) {
 		case READY_STATE:
 			nextState = READY_STATE;
 			sleep(3);
@@ -87,12 +122,39 @@ int main(int argc, char* argv[] ) {
 		case ARMED_STATE:
 			state_armed(&display, &nextState);
 			sendDisplay(server_coid, display);
+			MsgReply (rcvid2, EOK, &nextState, sizeof (State));
 			sleep(2);
 
-			/* Controller goes to the next state: PUNCH_STATE */
-			state_punched(&display, &nextState);
-			sendDisplay(server_coid, display);
-			sleep(1);
+			timer_settime(timer_id, 0, &itime, NULL);
+
+			rcvid = MsgReceive(att->chid , &msg, sizeof(msg), NULL);
+			printf("RCVID from ARMES STATE: %d\n",rcvid);
+			if (rcvid == 0) { /* we got a pulse */
+				/*We got a pulse from our timer*/
+				if (msg.pulse.code == TIMER_PULSE_CODE) {
+					printf("TIMER PULSE RECEIVED\n");
+					/* Controller goes to the next state: PUNCH_STATE */
+					state_punched(&display, &nextState);
+					sendDisplay(server_coid, display);
+					sleep(1);
+				} /* else other pulses ... */
+				else if(msg.pulse.code == PULSE_ES_ ){
+					printf("EMERGENCY STOP PULSE RECEIVED\n");
+					nextState = STOP_STATE;
+					state_stop(&display);
+					sendDisplay(server_coid, display);
+				}
+				/*This means we received a msgsend from input {LU, RU}*/
+			}else if(msg.op.curr == READY_STATE){
+				printf("MSGSEND BUTTON UP RECEIVED\n");
+				printf("RCVID FROM BUTTON UP: %d\n",rcvid);
+				nextState = READY_STATE;
+				//Reset channel id to message send number.
+				rcvid = rcvid2;
+				printf("RCVID RESET FROM ARMED BUTTON UP: %d\n",rcvid);
+			}
+
+
 			break;
 		case EXIT_STATE:
 			state_exit(&display, &nextState);
@@ -106,15 +168,17 @@ int main(int argc, char* argv[] ) {
 		default:
 			break;
 		}
-
+		/*ASK KHA: why doesn't state_ready function set nextstate?*/
 		if(nextState == READY_STATE){
 			state_ready(&display);
 			sendDisplay(server_coid, display);
 		}
 
-		//Reply to input and provide next state to handle next input.
-		MsgReply (rcvid, EOK, &nextState, sizeof (State));
-		//Send updated display object to display
+		if(nextState != PUNCH_STATE)
+			//Reply to input and provide next state to handle next input.
+			printf("REPLY TO INPUT AT END OF LOOP: %d\n",nextState);
+			MsgReply (rcvid, EOK, &nextState, sizeof (State));
+			//Send updated display object to display
 	}
 
 	// Close the connection

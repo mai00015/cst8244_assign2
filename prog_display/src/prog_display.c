@@ -43,7 +43,6 @@ int main(int argc, char *argv[]) {
 		if(display.index != -1){
 			printf("%s", outMessage[display.index]);
 			printf("\n");
-
 		}else{
 			status = 1;
 		}
